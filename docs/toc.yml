@@ -1,0 +1,8 @@
+- name: Home
+  href: index.md
+- name: Api Documentation
+  href: api/
+- name: DanglDocu
+  href: https://docs.dangl-it.com
+- name: GitHub
+  href: https://github.com/GeorgDangl/Dangl.SqlServerTestUtilities
