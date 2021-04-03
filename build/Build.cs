@@ -10,6 +10,7 @@ using Nuke.Common.Tools.DotNet;
 using Nuke.Common.Tools.GitVersion;
 using Nuke.Common.Utilities.Collections;
 using Nuke.WebDocu;
+using System.Linq;
 using static Nuke.Common.IO.FileSystemTasks;
 using static Nuke.Common.IO.PathConstruction;
 using static Nuke.Common.Tools.DocFX.DocFXTasks;
@@ -34,6 +35,9 @@ class Build : NukeBuild
 
     [Parameter] string DocuBaseUrl;
     [Parameter] string DocuApiKey;
+    [Parameter] string PublicMyGetSource;
+    [Parameter] string PublicMyGetApiKey;
+    [Parameter] string NuGetApiKey;
 
     [Solution] readonly Solution Solution;
     [GitRepository] readonly GitRepository GitRepository;
@@ -115,5 +119,49 @@ class Build : NukeBuild
                 .SetSourceDirectory(OutputDirectory / "docs")
                 .SetVersion(GitVersion.NuGetVersion)
                 .SetSkipForVersionConflicts(true));
+        });
+
+    Target Pack => _ => _
+        .DependsOn(Compile)
+        .Executes(() =>
+        {
+            var changeLog = GetCompleteChangeLog(ChangelogFile)
+                .EscapeStringPropertyForMsBuild();
+            DotNetPack(x => x
+                .SetConfiguration(Configuration)
+                .SetPackageReleaseNotes(changeLog)
+                .SetDescription("Dangl.SqlServerTestUtilities - www.dangl-it.com")
+                .SetTitle("Dangl.SqlServerTestUtilities - www.dangl-it.com")
+                .EnableNoBuild()
+                .SetOutputDirectory(OutputDirectory)
+                .SetVersion(GitVersion.NuGetVersion));
+        });
+
+    Target Push => _ => _
+        .DependsOn(Pack)
+        .Requires(() => PublicMyGetSource)
+        .Requires(() => PublicMyGetApiKey)
+        .Requires(() => NuGetApiKey)
+        .Requires(() => Configuration == Configuration.Release)
+        .Executes(() =>
+        {
+            GlobFiles(OutputDirectory, "*.nupkg").NotEmpty()
+                .Where(x => !x.EndsWith("symbols.nupkg"))
+                .ForEach(x =>
+                {
+                    DotNetNuGetPush(s => s
+                        .SetTargetPath(x)
+                        .SetSource(PublicMyGetSource)
+                        .SetApiKey(PublicMyGetApiKey));
+
+                    if (GitVersion.BranchName.Equals("master") || GitVersion.BranchName.Equals("origin/master"))
+                    {
+                        // Stable releases are published to NuGet
+                        DotNetNuGetPush(s => s
+                            .SetTargetPath(x)
+                            .SetSource("https://api.nuget.org/v3/index.json")
+                            .SetApiKey(NuGetApiKey));
+                    }
+                });
         });
 }
