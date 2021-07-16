@@ -39,7 +39,7 @@ class Build : NukeBuild
 
     [Parameter] string DocuBaseUrl;
     [Parameter] string DocuApiKey;
-    [Parameter] string PublicMyGetSource;
+    [Parameter] string PublicMyGetSource = "https://www.myget.org/F/dangl/api/v2/package";
     [Parameter] string PublicMyGetApiKey;
     [Parameter] string NuGetApiKey;
     [Parameter] string GitHubAuthenticationToken;
@@ -159,7 +159,7 @@ class Build : NukeBuild
                         .SetSource(PublicMyGetSource)
                         .SetApiKey(PublicMyGetApiKey));
 
-                    if (GitVersion.BranchName.Equals("master") || GitVersion.BranchName.Equals("origin/master"))
+                    if (IsOnBranch("master"))
                     {
                         // Stable releases are published to NuGet
                         DotNetNuGetPush(s => s
@@ -171,9 +171,9 @@ class Build : NukeBuild
         });
 
     Target PublishGitHubRelease => _ => _
-        .DependsOn(Pack)
+        .DependsOn(Pack) 
         .Requires(() => GitHubAuthenticationToken)
-        .OnlyWhenDynamic(() => GitVersion.BranchName.Equals("master") || GitVersion.BranchName.Equals("origin/master"))
+        .OnlyWhenDynamic(() => IsOnBranch("master"))
         .Executes(async () =>
         {
             var releaseTag = $"v{GitVersion.MajorMinorPatch}";
@@ -195,4 +195,9 @@ class Build : NukeBuild
                     .SetTag(releaseTag)
                     .SetToken(GitHubAuthenticationToken));
         });
+
+    private bool IsOnBranch(string branchName)
+    {
+        return GitVersion.BranchName.Equals(branchName) || GitVersion.BranchName.Equals($"origin/{branchName}");
+    }
 }

@@ -1,0 +1,27 @@
+name: continuous
+
+on:
+  push
+
+jobs:
+  tests:
+    name: tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v1
+      - name: Tests
+        run: ./build.cmd Test -Configuration Debug
+  publish-docs-and-release:
+    name: publish-docs-and-release
+    runs-on: ubuntu-latest
+    needs: 
+      - tests
+    steps:
+      - uses: actions/checkout@v1
+      - name: Run './build.cmd UploadDocumentation Push PublishGitHubRelease'
+        run: ./build.cmd UploadDocumentation Push PublishGitHubRelease
+        env:
+            GitHubAuthenticationToken: ${{ secrets.GITHUB_TOKEN }}
+            DocuApiKey: ${{ secrets.DocuApiKey }}
+            PublicMyGetApiKey: ${{ secrets.PublicMyGetApiKey }}
+            NuGetApiKey: ${{ secrets.NuGetApiKey }}
